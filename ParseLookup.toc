@@ -1,0 +1,6 @@
+## Interface: 120007
+## Title: Release The Files
+## Version: 1.0
+## Notes: Shout out "WarcraftLogsLink" by badmy
+
+ParseLookup.lua
