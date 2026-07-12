@@ -63,15 +63,44 @@ StaticPopupDialogs[POPUP_NAME] = {
         local box = self.EditBox or _G[self:GetName() .. "EditBox"]
 
         if box then
+
             box:SetText(self.wclURL or "")
             box:HighlightText()
             box:SetFocus()
+
+            box:SetScript("OnKeyDown", function(editBox, key)
+
+                if key == "C" and IsControlKeyDown() then
+
+                    C_Timer.After(0.05, function()
+
+                        self:Hide()
+
+                    end)
+
+                end
+
+            end)
+
+            box:SetPropagateKeyboardInput(true)
+
+        end
+
+    end,
+
+
+    OnHide = function(self)
+
+        local box =
+            self.EditBox or
+            _G[self:GetName() .. "EditBox"]
+
+        if box then
+            box:SetScript("OnKeyDown", nil)
         end
 
     end,
 }
-
-
 
 local function ShowPopup(url)
 
@@ -110,9 +139,12 @@ local function SplitNameRealm(fullName)
     return name, realm
 end
 
+local function GetMenuText(className, unit)
 
+    if className then
+        return "Release the " .. className .. " Files"
+    end
 
-local function GetMenuText(unit)
 
     if unit and UnitExists(unit) then
 
@@ -124,7 +156,9 @@ local function GetMenuText(unit)
 
     end
 
-    return MENU_TEXT
+
+    return "Release the Files"
+
 end
 
 -- Modern Menu Name Detection
@@ -142,14 +176,13 @@ local function JoinNameRealm(name, realm)
     return name
 end
 
-
-
-local function GetLFGName(owner, contextData)
+local function GetLFGInfo(owner, contextData)
 
     local name
     local realm
+    local className
 
-    -- Unit menus
+    -- normal unit menus
 
     if contextData and contextData.unit then
 
@@ -158,15 +191,16 @@ local function GetLFGName(owner, contextData)
             name, realm =
                 UnitFullName(contextData.unit)
 
-            if name then
-                return name, realm
-            end
+            local _, class =
+                UnitClass(contextData.unit)
+
+            return name, realm, class
 
         end
 
     end
 
-    -- Context data
+    -- context data
 
     if contextData then
 
@@ -174,44 +208,14 @@ local function GetLFGName(owner, contextData)
 
             return
                 contextData.name,
-                contextData.server or contextData.realm
-
-        end
-
-
-        if contextData.accountInfo
-        and contextData.accountInfo.gameAccountInfo then
-
-            local info =
-                contextData.accountInfo.gameAccountInfo
-
-            return
-                info.characterName,
-                info.realmName
+                contextData.server or contextData.realm,
+                contextData.className
 
         end
 
     end
 
-    -- LFG Search Result
-
-    if owner and owner.resultID then
-
-        local info =
-            C_LFGList.GetSearchResultInfo(owner.resultID)
-
-        if info and info.leaderName then
-
-            name, realm =
-                SplitNameRealm(info.leaderName)
-
-            return name, realm
-
-        end
-
-    end
-
-    -- LFG Applicant
+    -- LFG applicant
 
     if owner and owner.memberIdx then
 
@@ -219,20 +223,50 @@ local function GetLFGName(owner, contextData)
 
         if parent and parent.applicantID then
 
-            local memberName =
+            local memberInfo =
                 C_LFGList.GetApplicantMemberInfo(
                     parent.applicantID,
                     owner.memberIdx
                 )
 
-            if memberName then
+            if memberInfo then
 
                 name, realm =
-                    SplitNameRealm(memberName)
+                    SplitNameRealm(memberInfo)
 
-                return name, realm
+
+                local _, class =
+                    C_LFGList.GetApplicantMemberInfo(
+                        parent.applicantID,
+                        owner.memberIdx
+                    )
+
+                return name, realm, class
 
             end
+
+        end
+
+    end
+
+    -- LFG search result
+
+    if owner and owner.resultID then
+
+        local info =
+            C_LFGList.GetSearchResultInfo(owner.resultID)
+
+
+        if info then
+
+            name, realm =
+                SplitNameRealm(info.leaderName)
+
+
+            return
+                name,
+                realm,
+                info.className
 
         end
 
@@ -244,21 +278,20 @@ end
 
 local function AddWCLButton(owner, rootDescription, contextData)
 
-    local name, realm =
-        GetLFGName(owner, contextData)
+    local name, realm, className =
+        GetLFGInfo(owner, contextData)
 
 
     if not name then
         return
     end
 
-
     rootDescription:CreateDivider()
-
 
     rootDescription:CreateButton(
 
         GetMenuText(
+            className,
             contextData and contextData.unit
         ),
 
@@ -282,7 +315,6 @@ end
 -- Register Modern Menus
 
 local registered = false
-
 
 local function Initialize()
 
